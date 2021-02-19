@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { InjectModel, InjectConnection } from '@nestjs/mongoose'
 import { Connection, Model } from 'mongoose'
 
+import { CreateNoficationDTO } from './models/dtos/create-notification.dto'
 import {
   NotificationDocument,
   Notification
@@ -16,4 +17,8 @@ export class NotificationsRepository {
     @InjectConnection()
     private readonly connection: Connection
   ) {}
+
+  async create(payload: CreateNoficationDTO): Promise<Notification> {
+    return this.create(payload)
+  }
 }

@@ -27,6 +27,7 @@ import { ProviderDayAvailability } from './models/provider-day-availability'
 import { FindAllAppointmentInMonthDTO } from './models/dtos/find-all-appointment-in-month.dto'
 import { ProviderMonthAvailability } from './models/provider-month-availability'
 import { Keys } from 'config/cache.config'
+import { NotificationsService } from 'modules/notifications/notifications.service'
 
 @Injectable()
 export class AppointmentService {
@@ -36,6 +37,9 @@ export class AppointmentService {
 
     @Inject(UsersService)
     private readonly usersService: UsersService,
+
+    @Inject()
+    private readonly notificationService: NotificationsService,
 
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache
@@ -77,6 +81,14 @@ export class AppointmentService {
       date: appointmentDate,
       provider_id,
       user_id
+    })
+
+    await this.notificationService.create({
+      recipient_id: provider_id,
+      content: `New appointment ${format(
+        appointmentDate,
+        "yyyy/MM/dd '->' HH:mm"
+      )}`
     })
 
     await this.cacheManager.del(
