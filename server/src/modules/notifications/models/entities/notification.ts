@@ -11,10 +11,10 @@ export class Notification {
   @Prop({ required: true })
   content: string
 
-  @Prop()
+  @Prop({ required: true })
   recipient_id: string
 
-  @Prop()
+  @Prop({ default: false })
   read: boolean
 }
 
