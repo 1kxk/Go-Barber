@@ -1,4 +1,5 @@
 import {
+  CACHE_MANAGER,
   ConflictException,
   forwardRef,
   Inject,
@@ -6,8 +7,10 @@ import {
   NotFoundException,
   UnauthorizedException
 } from '@nestjs/common'
+import { Cache } from 'cache-manager'
 import { InjectRepository } from '@nestjs/typeorm'
 
+import { DiskStorage } from '../../shared/providers/storage/implementations/disk-storage'
 import { AuthService } from '../../shared/modules/auth/auth.service'
 import { SignInDTO } from './models/dtos/sign-in.dto'
 import { SignUpDTO } from './models/dtos/sign-up.dto'
@@ -16,6 +19,7 @@ import { User } from './models/entities/users.entity'
 import { UserRoles } from './models/enums/user-roles.enum'
 import { SignIn } from './models/SignIn'
 import { UsersRepository } from './users.repository'
+import { Keys } from '../../config/cache.config'
 
 @Injectable()
 export class UsersService {
@@ -24,17 +28,37 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
 
     @Inject(forwardRef(() => AuthService))
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+
+    @Inject('StorageService')
+    private readonly storageService: DiskStorage,
+
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache
   ) {}
 
   async findAll(user_id?: string): Promise<User[]> {
-    return this.usersRepository.findAllProviders(user_id)
+    let users = await this.cacheManager.get<User[]>(Keys.USERS_LIST)
+
+    if (!users) {
+      users = await this.usersRepository.find()
+
+      await this.cacheManager.set(Keys.USERS_LIST, users)
+    }
+
+    return users
   }
 
   async findOne(id: string): Promise<User> {
-    const user = await this.usersRepository.findOne(id)
+    let user = await this.cacheManager.get<User>(`${Keys.USER}:${id}`)
 
-    if (!user) throw new NotFoundException('User could not be found!')
+    if (!user) {
+      user = await this.usersRepository.findOne(id)
+
+      if (!user) throw new NotFoundException('User could not be found!')
+
+      await this.cacheManager.set(`${Keys.USER}:${id}`, user)
+    }
 
     return user
   }
@@ -70,6 +94,7 @@ export class UsersService {
 
     user.name = payload.name ?? user.name
     await this.usersRepository.update(id, user)
+    await this.cacheManager.del(`${Keys.USER}:${id}`)
     return user
   }
 
@@ -78,11 +103,14 @@ export class UsersService {
 
     const updatedUser = this.usersRepository.create({ ...user, role })
     await this.usersRepository.update(id, updatedUser)
+    await this.cacheManager.del(`${Keys.USER}:${id}`)
     return updatedUser
   }
 
   async deleteOne(id: string): Promise<void> {
     await this.findOne(id)
+
+    await this.cacheManager.del(`${Keys.USER}:${id}`)
     await this.usersRepository.delete(id)
   }
 
@@ -117,7 +145,16 @@ export class UsersService {
     return { token, user_id: user.id }
   }
 
-  async updateAvatar(_file: any): Promise<any> {}
+  async updateAvatar(id: string, filePath: any): Promise<User> {
+    const fileName = await this.storageService.saveFile(filePath)
+    const user = await this.findOne(id)
+
+    user.avatar = fileName
+    await this.usersRepository.save(user)
+    await this.cacheManager.del(`${Keys.USER}:${id}`)
+
+    return user
+  }
 
   private async findByUsernameOrEmail(
     username: string,

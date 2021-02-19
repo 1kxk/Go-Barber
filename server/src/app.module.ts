@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common'
+import { Module, CacheModule } from '@nestjs/common'
+import redisStore from 'cache-manager-redis-store'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { MongooseModule } from '@nestjs/mongoose'
@@ -18,6 +19,16 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       cache: true,
       load: [sqlDatabase, nosqlDatabase, authConfig, storageConfig],
       envFilePath: [`.env.${process.env.NODE_ENV}`]
+    }),
+    CacheModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        ttl: 86400, // 1d
+        store: redisStore,
+        host: configService.get<string>('cache.host'),
+        port: configService.get<string>('cache.port')
+      })
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

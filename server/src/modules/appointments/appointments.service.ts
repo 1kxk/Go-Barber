@@ -1,4 +1,5 @@
 import {
+  CACHE_MANAGER,
   ConflictException,
   Inject,
   Injectable,
@@ -11,8 +12,10 @@ import {
   getHours,
   isAfter,
   getDaysInMonth,
-  getDate
+  getDate,
+  format
 } from 'date-fns'
+import { Cache } from 'cache-manager'
 
 import { AppointmentRepository } from './appointments.repository'
 import { Appointment } from './models/entities/appointments.entity'
@@ -23,6 +26,7 @@ import { FindAllAppointmentInDayDTO } from './models/dtos/find-all-appointment-i
 import { ProviderDayAvailability } from './models/provider-day-availability'
 import { FindAllAppointmentInMonthDTO } from './models/dtos/find-all-appointment-in-month.dto'
 import { ProviderMonthAvailability } from './models/provider-month-availability'
+import { Keys } from 'config/cache.config'
 
 @Injectable()
 export class AppointmentService {
@@ -31,7 +35,10 @@ export class AppointmentService {
     private readonly appointmentsRepository: AppointmentRepository,
 
     @Inject(UsersService)
-    private readonly usersService: UsersService
+    private readonly usersService: UsersService,
+
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache
   ) {}
 
   async create(payload: CreateAppointmentDTO): Promise<Appointment> {
@@ -72,17 +79,47 @@ export class AppointmentService {
       user_id
     })
 
+    await this.cacheManager.del(
+      `${Keys.PROVIDER_APPOINTMENTS}:${provider_id}:${format(
+        appointmentDate,
+        'yyyy-M-d'
+      )}`
+    )
+
     return this.appointmentsRepository.save(appointment)
   }
 
   async getProvidersList(user_id: string): Promise<User[]> {
-    return this.usersService.findAll(user_id)
+    let users = await this.cacheManager.get<User[]>(
+      `${Keys.PROVIDERS_LIST}:${user_id}`
+    )
+
+    if (!users) {
+      users = await this.usersService.findAll(user_id)
+
+      await this.cacheManager.set(`${Keys.PROVIDERS_LIST}:${user_id}`, users)
+    }
+
+    return users
   }
 
   async listProvidersAppointment(
     payload: FindAllAppointmentInDayDTO
   ): Promise<Appointment[]> {
-    return this.appointmentsRepository.findAllInDayFromProvider(payload)
+    const { day, month, provider_id, year } = payload
+
+    const cachedKey = `${Keys.PROVIDER_APPOINTMENTS}:${provider_id}:${year}-${month}-${day}`
+    let appointments = await this.cacheManager.get<Appointment[]>(cachedKey)
+
+    if (!appointments) {
+      appointments = await this.appointmentsRepository.findAllInDayFromProvider(
+        payload
+      )
+
+      await this.cacheManager.set(cachedKey, appointments)
+    }
+
+    return appointments
   }
 
   async listProviderDayAvailability(
