@@ -24,6 +24,9 @@ export class User extends BaseEntity {
   @Column({ unique: true })
   email: string
 
+  @Column()
+  avatar: string
+
   @Exclude()
   @Column()
   password: string
@@ -34,9 +37,6 @@ export class User extends BaseEntity {
 
   @Column({ type: 'enum', enum: UserRoles, default: UserRoles.USER })
   role: UserRoles
-
-  @Column({ nullable: true })
-  avatar: string
 
   @CreateDateColumn()
   created_at: Date

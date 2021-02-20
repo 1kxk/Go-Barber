@@ -6,7 +6,7 @@ import path from 'path'
 import { IStorageProvider } from '../storage.provider'
 
 @Injectable()
-export class DiskStorage implements IStorageProvider {
+export class DiskStorageProvider implements IStorageProvider {
   constructor(private configService: ConfigService) {}
 
   async saveFile(filename: string): Promise<string> {
@@ -25,12 +25,16 @@ export class DiskStorage implements IStorageProvider {
   }
 
   async deleteFile(filename: string): Promise<void> {
-    const file =
-      this.configService.get<string>('storage.uploadsFolder') + '/' + filename
+    const file = path.resolve(
+      this.configService.get<string>('storage.uploadsFolder'),
+      filename
+    )
 
     try {
       await fs.promises.stat(file)
-    } catch (error) {}
+    } catch (error) {
+      return
+    }
 
     await fs.promises.unlink(file)
   }

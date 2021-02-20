@@ -1,5 +1,7 @@
 import {
   Body,
+  CacheInterceptor,
+  CacheTTL,
   Controller,
   Delete,
   Get,
@@ -33,6 +35,8 @@ import { AuthUser } from './decorators/auth-user.decorator'
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @CacheTTL(10)
+  @UseInterceptors(CacheInterceptor)
   @UseGuards(JwtAuthGuard)
   @Get()
   async findAll(@Query('user_id') user_id: string): Promise<User[]> {

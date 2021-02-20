@@ -5,7 +5,6 @@ import {
   UnauthorizedException
 } from '@nestjs/common'
 import { DeleteResult, UpdateResult } from 'typeorm'
-import MockDate from 'mockdate'
 
 import { AppModule } from '../../../src/app.module'
 import { UsersService } from '../../../src/modules/users/users.service'
@@ -15,15 +14,14 @@ import { AuthService } from '../../../src/shared/modules/auth/auth.service'
 import { SignUpDTO } from '../../../src/modules/users/models/dtos/sign-up.dto'
 import { SignInDTO } from '../../../src/modules/users/models/dtos/sign-in.dto'
 import { usersMock } from '../../mocks/users.mock'
+import { StorageService } from '../../../src/shared/modules/storage/storage.service'
 
 const id = '22d0431e-50e2-4c86-a0a3-b414a43def4f'
-
-MockDate.set(1613196228182)
-
 describe('Users Service', () => {
   let sut: UsersService
   let authService: AuthService
   let usersRepository: UsersRepository
+  let storageService: StorageService
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
@@ -34,6 +32,7 @@ describe('Users Service', () => {
     sut = app.get<UsersService>(UsersService)
     authService = app.get<AuthService>(AuthService)
     usersRepository = app.get<UsersRepository>(UsersRepository)
+    storageService = app.get<StorageService>(StorageService)
 
     jest
       .spyOn(usersRepository, 'save')
@@ -59,6 +58,9 @@ describe('Users Service', () => {
     jest
       .spyOn(authService, 'generateJwt')
       .mockImplementation(async () => Promise.resolve('token'))
+    jest
+      .spyOn(storageService, 'saveFile')
+      .mockImplementation(async () => Promise.resolve('path'))
   })
 
   describe('findAll()', () => {
@@ -76,7 +78,7 @@ describe('Users Service', () => {
       await expect(promise).resolves.toEqual(usersMock)
     })
 
-    it('Should be to throw if no user was find given id', async () => {
+    it('Should be to throw if no user was found given id', async () => {
       jest
         .spyOn(usersRepository, 'findOne')
         .mockImplementation(async () => undefined)
