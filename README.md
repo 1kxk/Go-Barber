@@ -21,6 +21,7 @@
 
   - BackEnd:
     - Typescript
+    - NestJs
     - Cors
     - Typeorm
     - Postgresql
